@@ -2,6 +2,33 @@
 
 This guide will help you get Archon up and running on your machine without Docker.
 
+## 📍 Installation Location
+
+Archon is installed at: `/home/user/Archon`
+
+**All commands below assume you start from this directory.** If you're elsewhere, navigate there first:
+```bash
+cd /home/user/Archon
+```
+
+## ⚡ Quick Start (Easiest Way)
+
+**Terminal 1 - Backend:**
+```bash
+cd /home/user/Archon
+./start-backend.sh
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd /home/user/Archon
+./start-frontend.sh
+```
+
+Then open **http://localhost:3737** in your browser!
+
+---
+
 ## ✅ What's Already Done
 
 - ✅ Python dependencies installed (uv)
@@ -24,12 +51,16 @@ Before you can run Archon, you **MUST** configure your Supabase connection:
 
 ### 2. Update Your .env File
 
-Edit `/home/user/Archon/.env` and add your credentials:
+Edit `.env` in the Archon root directory and add your credentials:
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your-service-role-key-here
 ```
+
+**✅ Already configured!** Your Supabase credentials are set:
+- URL: `https://hrxcozkkhbnnhlpltuef.supabase.co`
+- Service key: Configured ✓
 
 ⚠️ **CRITICAL**: Use the **service_role** key, not the anon key! The service_role key is longer and required for all save operations.
 
@@ -49,14 +80,14 @@ Since Docker is not available, you'll run services locally in separate terminals
 
 **Terminal 1 - Backend Server:**
 ```bash
-cd /home/user/Archon/python
+cd python
 uv run python -m src.server.main
 ```
 This starts the main API server on http://localhost:8181
 
 **Terminal 2 - Frontend:**
 ```bash
-cd /home/user/Archon/archon-ui-main
+cd archon-ui-main
 npm run dev
 ```
 This starts the UI on http://localhost:3737
@@ -65,20 +96,20 @@ This starts the UI on http://localhost:3737
 
 **Terminal 1 - Backend Server:**
 ```bash
-cd /home/user/Archon/python
+cd python
 uv run python -m src.server.main
 ```
 
 **Terminal 2 - MCP Server:**
 ```bash
-cd /home/user/Archon/python
+cd python
 uv run python -m src.mcp_server.main
 ```
 This starts the MCP server on http://localhost:8051
 
 **Terminal 3 - Frontend:**
 ```bash
-cd /home/user/Archon/archon-ui-main
+cd archon-ui-main
 npm run dev
 ```
 
@@ -88,7 +119,7 @@ If you want to use the Agent Work Orders feature, you'll also need:
 
 **Terminal 4 - Agent Work Orders Service:**
 ```bash
-cd /home/user/Archon/python
+cd python
 uv run python -m src.agent_work_orders.server
 ```
 
@@ -101,14 +132,14 @@ uv run python -m src.agent_work_orders.server
 
 ### Check Backend TypeScript/Lint Issues
 ```bash
-cd /home/user/Archon/python
+cd python
 uv run ruff check
 uv run mypy src/
 ```
 
 ### Check Frontend Issues
 ```bash
-cd /home/user/Archon/archon-ui-main
+cd archon-ui-main
 npx tsc --noEmit
 npm run biome:fix
 npm run lint
@@ -117,11 +148,11 @@ npm run lint
 ### Run Tests
 ```bash
 # Backend
-cd /home/user/Archon/python
+cd python
 uv run pytest
 
 # Frontend
-cd /home/user/Archon/archon-ui-main
+cd archon-ui-main
 npm run test
 ```
 
