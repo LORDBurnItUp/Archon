@@ -814,6 +814,7 @@ class CreateDocumentRequest(BaseModel):
     content: dict[str, Any] | None = None
     tags: list[str] | None = None
     author: str | None = None
+    folder_path: str | None = None
 
 
 class UpdateDocumentRequest(BaseModel):
@@ -821,6 +822,17 @@ class UpdateDocumentRequest(BaseModel):
     content: dict[str, Any] | None = None
     tags: list[str] | None = None
     author: str | None = None
+    folder_path: str | None = None
+
+
+class RenameFolderRequest(BaseModel):
+    old_path: str
+    new_path: str
+
+
+class MoveDocumentsRequest(BaseModel):
+    doc_ids: list[str]
+    folder_path: str
 
 
 class CreateVersionRequest(BaseModel):
@@ -1008,6 +1020,7 @@ async def create_project_document(project_id: str, request: CreateDocumentReques
             content=request.content,
             tags=request.tags,
             author=request.author,
+            folder_path=request.folder_path,
         )
 
         if not success:
@@ -1074,6 +1087,8 @@ async def update_project_document(project_id: str, doc_id: str, request: UpdateD
             update_fields["tags"] = request.tags
         if request.author is not None:
             update_fields["author"] = request.author
+        if request.folder_path is not None:
+            update_fields["folder_path"] = request.folder_path
 
         # Use DocumentService to update document
         document_service = DocumentService()
@@ -1124,6 +1139,99 @@ async def delete_project_document(project_id: str, doc_id: str):
         logfire.error(
             f"Failed to delete document | error={str(e)} | project_id={project_id} | doc_id={doc_id}"
         )
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
+# ==================== FOLDER MANAGEMENT ENDPOINTS ====================
+
+
+@router.get("/projects/{project_id}/folders")
+async def get_project_folders(project_id: str):
+    """Get all folders in a project."""
+    try:
+        logfire.info(f"Getting folders | project_id={project_id}")
+
+        document_service = DocumentService()
+        success, result = document_service.get_folders(project_id)
+
+        if not success:
+            if "not found" in result.get("error", "").lower():
+                raise HTTPException(status_code=404, detail=result.get("error"))
+            else:
+                raise HTTPException(status_code=500, detail=result)
+
+        logfire.info(f"Folders retrieved | project_id={project_id} | count={result['total_count']}")
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logfire.error(f"Failed to get folders | error={str(e)} | project_id={project_id}")
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
+@router.put("/projects/{project_id}/folders/rename")
+async def rename_project_folder(project_id: str, request: RenameFolderRequest):
+    """Rename a folder and update all documents in that folder."""
+    try:
+        logfire.info(
+            f"Renaming folder | project_id={project_id} | old_path={request.old_path} | new_path={request.new_path}"
+        )
+
+        document_service = DocumentService()
+        success, result = document_service.rename_folder(
+            project_id, request.old_path, request.new_path
+        )
+
+        if not success:
+            if "not found" in result.get("error", "").lower():
+                raise HTTPException(status_code=404, detail=result.get("error"))
+            else:
+                raise HTTPException(status_code=400, detail=result)
+
+        logfire.info(
+            f"Folder renamed | project_id={project_id} | updated_count={result['updated_count']}"
+        )
+
+        return {"message": "Folder renamed successfully", **result}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logfire.error(f"Failed to rename folder | error={str(e)} | project_id={project_id}")
+        raise HTTPException(status_code=500, detail={"error": str(e)})
+
+
+@router.put("/projects/{project_id}/docs/move")
+async def move_documents_to_folder(project_id: str, request: MoveDocumentsRequest):
+    """Move multiple documents to a folder."""
+    try:
+        logfire.info(
+            f"Moving documents | project_id={project_id} | doc_count={len(request.doc_ids)} | folder_path={request.folder_path}"
+        )
+
+        document_service = DocumentService()
+        success, result = document_service.move_documents_to_folder(
+            project_id, request.doc_ids, request.folder_path
+        )
+
+        if not success:
+            if "not found" in result.get("error", "").lower():
+                raise HTTPException(status_code=404, detail=result.get("error"))
+            else:
+                raise HTTPException(status_code=400, detail=result)
+
+        logfire.info(
+            f"Documents moved | project_id={project_id} | updated_count={result['updated_count']}"
+        )
+
+        return {"message": "Documents moved successfully", **result}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logfire.error(f"Failed to move documents | error={str(e)} | project_id={project_id}")
         raise HTTPException(status_code=500, detail={"error": str(e)})
 
 

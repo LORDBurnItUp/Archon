@@ -48,7 +48,7 @@ export function useProjectDocument(projectId: string | undefined, documentId: st
 // Type for document updates
 export interface DocumentUpdateData {
   documentId: string;
-  updates: { title?: string; content?: unknown; tags?: string[]; author?: string };
+  updates: { title?: string; content?: unknown; tags?: string[]; author?: string; folder_path?: string };
 }
 
 /**
@@ -91,6 +91,7 @@ export function useCreateDocument(projectId: string) {
       content?: any;
       tags?: string[];
       author?: string;
+      folder_path?: string;
     }) => {
       const response = await callAPIWithETag<{ success: boolean; message: string; document: ProjectDocument }>(
         `/api/projects/${projectId}/docs`,

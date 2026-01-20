@@ -4,7 +4,7 @@
  */
 
 import { callAPIWithETag } from "../../../shared/api/apiClient";
-import type { ProjectDocument } from "../types";
+import type { ProjectDocument, RenameFolderRequest, MoveDocumentsRequest } from "../types";
 
 interface DocumentsResponse {
   success: boolean;
@@ -41,7 +41,7 @@ export const documentService = {
   async updateDocument(
     projectId: string,
     documentId: string,
-    updates: { content?: unknown; title?: string; tags?: string[] },
+    updates: { content?: unknown; title?: string; tags?: string[]; folder_path?: string },
   ): Promise<ProjectDocument> {
     const response = await callAPIWithETag<{ success: boolean; document: ProjectDocument }>(
       `/api/projects/${projectId}/docs/${documentId}`,
@@ -62,6 +62,39 @@ export const documentService = {
   async deleteDocument(projectId: string, documentId: string): Promise<void> {
     await callAPIWithETag<{ success: boolean; message: string }>(`/api/projects/${projectId}/docs/${documentId}`, {
       method: "DELETE",
+    });
+  },
+
+  /**
+   * Get all folders in a project
+   */
+  async getFolders(projectId: string): Promise<string[]> {
+    const response = await callAPIWithETag<{ folders: string[]; total_count: number }>(
+      `/api/projects/${projectId}/folders`,
+    );
+    return response.folders || ["/"];
+  },
+
+  /**
+   * Rename a folder
+   */
+  async renameFolder(projectId: string, request: RenameFolderRequest): Promise<void> {
+    await callAPIWithETag<{ message: string; updated_count: number }>(
+      `/api/projects/${projectId}/folders/rename`,
+      {
+        method: "PUT",
+        body: JSON.stringify(request),
+      },
+    );
+  },
+
+  /**
+   * Move documents to a folder
+   */
+  async moveDocuments(projectId: string, request: MoveDocumentsRequest): Promise<void> {
+    await callAPIWithETag<{ message: string; updated_count: number }>(`/api/projects/${projectId}/docs/move`, {
+      method: "PUT",
+      body: JSON.stringify(request),
     });
   },
 };

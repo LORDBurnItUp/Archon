@@ -19,24 +19,29 @@ import {
 interface AddDocumentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (title: string, type: string) => Promise<void>;
+  onAdd: (title: string, type: string, folder_path?: string) => Promise<void>;
+  currentFolder?: string;
 }
 
-export const AddDocumentModal = ({ open, onOpenChange, onAdd }: AddDocumentModalProps) => {
+export const AddDocumentModal = ({ open, onOpenChange, onAdd, currentFolder = "/" }: AddDocumentModalProps) => {
   const [title, setTitle] = useState("");
   const [type, setType] = useState("spec");
+  const [folderPath, setFolderPath] = useState(currentFolder);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset form state when modal closes
+  // Reset form state when modal closes or current folder changes
   useEffect(() => {
     if (!open) {
       setTitle("");
       setType("spec");
+      setFolderPath(currentFolder);
       setError(null);
       setIsAdding(false);
+    } else {
+      setFolderPath(currentFolder);
     }
-  }, [open]);
+  }, [open, currentFolder]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +51,10 @@ export const AddDocumentModal = ({ open, onOpenChange, onAdd }: AddDocumentModal
     setError(null);
 
     try {
-      await onAdd(title, type);
+      await onAdd(title, type, folderPath);
       setTitle("");
       setType("spec");
+      setFolderPath(currentFolder);
       setError(null);
       onOpenChange(false);
     } catch (err) {
@@ -121,6 +127,26 @@ export const AddDocumentModal = ({ open, onOpenChange, onAdd }: AddDocumentModal
                   </SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <label
+                htmlFor="folder-path"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
+                Folder Path
+              </label>
+              <Input
+                id="folder-path"
+                type="text"
+                placeholder="/folder/subfolder"
+                value={folderPath}
+                onChange={(e) => setFolderPath(e.target.value)}
+                disabled={isAdding}
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Use "/" for root, or "/folder/subfolder" for nested folders
+              </p>
             </div>
           </div>
 

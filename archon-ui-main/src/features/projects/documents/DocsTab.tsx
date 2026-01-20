@@ -1,7 +1,7 @@
-import { FileText, Plus, Search } from "lucide-react";
+import { FileText, Folder, Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DeleteConfirmModal } from "../../ui/components/DeleteConfirmModal";
-import { Button, Input } from "../../ui/primitives";
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/primitives";
 import { AddDocumentModal } from "./components/AddDocumentModal";
 import { DocumentCard } from "./components/DocumentCard";
 import { DocumentViewer } from "./components/DocumentViewer";
@@ -33,6 +33,7 @@ export const DocsTab = ({ project }: DocsTabProps) => {
   // Document state
   const [selectedDocument, setSelectedDocument] = useState<ProjectDocument | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentFolder, setCurrentFolder] = useState("/");
   const [showAddModal, setShowAddModal] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<ProjectDocument | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -51,11 +52,12 @@ export const DocsTab = ({ project }: DocsTabProps) => {
   };
 
   // Handle add document
-  const handleAddDocument = async (title: string, document_type: string) => {
+  const handleAddDocument = async (title: string, document_type: string, folder_path?: string) => {
     await createDocumentMutation.mutateAsync({
       title,
       document_type,
       content: { markdown: `# ${title}\n\nStart writing your document here...` },
+      folder_path: folder_path || currentFolder,
       // NOTE: Archon does not have user authentication - this is a single-user local app.
       // "User" is a constant representing the sole user of this Archon instance.
       author: "User",
@@ -113,8 +115,15 @@ export const DocsTab = ({ project }: DocsTabProps) => {
     }
   }, [documents, selectedDocument]);
 
-  // Filter documents based on search
-  const filteredDocuments = documents.filter((doc) => doc.title.toLowerCase().includes(searchQuery.toLowerCase()));
+  // Get unique folders from documents
+  const folders = Array.from(new Set(documents.map((doc) => doc.folder_path || "/"))).sort();
+
+  // Filter documents based on search and current folder
+  const filteredDocuments = documents.filter((doc) => {
+    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFolder = currentFolder === "/" ? true : (doc.folder_path || "/") === currentFolder;
+    return matchesSearch && matchesFolder;
+  });
 
   if (isLoading) {
     return (
@@ -143,6 +152,30 @@ export const DocsTab = ({ project }: DocsTabProps) => {
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
           </Button>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Folder</label>
+          <Select value={currentFolder} onValueChange={setCurrentFolder}>
+            <SelectTrigger className="w-full" color="cyan">
+              <div className="flex items-center gap-2">
+                <Folder className="w-4 h-4" />
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent color="cyan">
+              <SelectItem value="/" color="cyan">
+                / (All Documents)
+              </SelectItem>
+              {folders
+                .filter((f) => f !== "/")
+                .map((folder) => (
+                  <SelectItem key={folder} value={folder} color="cyan">
+                    {folder}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="relative">
@@ -202,7 +235,12 @@ export const DocsTab = ({ project }: DocsTabProps) => {
       </div>
 
       {/* Add Document Modal */}
-      <AddDocumentModal open={showAddModal} onOpenChange={setShowAddModal} onAdd={handleAddDocument} />
+      <AddDocumentModal
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        onAdd={handleAddDocument}
+        currentFolder={currentFolder}
+      />
 
       {/* Delete Confirmation Modal */}
       <DeleteConfirmModal

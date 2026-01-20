@@ -24,6 +24,7 @@ export interface ProjectDocument {
   tags?: string[];
   updated_at: string;
   created_at?: string;
+  folder_path?: string;
 }
 
 export type DocumentType =
@@ -42,4 +43,21 @@ export interface DocumentCardProps {
   isActive: boolean;
   onSelect: (doc: ProjectDocument) => void;
   onDelete: (doc: ProjectDocument) => void;
+}
+
+export interface FolderNode {
+  path: string;
+  name: string;
+  children: FolderNode[];
+  documents: ProjectDocument[];
+}
+
+export interface RenameFolderRequest {
+  old_path: string;
+  new_path: string;
+}
+
+export interface MoveDocumentsRequest {
+  doc_ids: string[];
+  folder_path: string;
 }

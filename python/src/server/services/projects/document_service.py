@@ -33,6 +33,7 @@ class DocumentService:
         content: dict[str, Any] = None,
         tags: list[str] = None,
         author: str = None,
+        folder_path: str = None,
     ) -> tuple[bool, dict[str, Any]]:
         """
         Add a new document to a project's docs JSONB field.
@@ -62,6 +63,7 @@ class DocumentService:
                 "tags": tags or [],
                 "status": "draft",
                 "version": "1.0",
+                "folder_path": folder_path or "/",
             }
 
             if author:
@@ -139,6 +141,7 @@ class DocumentService:
                         "author": doc.get("author"),
                         "created_at": doc.get("created_at"),
                         "updated_at": doc.get("updated_at"),
+                        "folder_path": doc.get("folder_path", "/"),
                         "stats": {
                             "content_size": len(str(doc.get("content", {})))
                         }
@@ -260,6 +263,8 @@ class DocumentService:
                         docs[i]["author"] = update_fields["author"]
                     if "version" in update_fields:
                         docs[i]["version"] = update_fields["version"]
+                    if "folder_path" in update_fields:
+                        docs[i]["folder_path"] = update_fields["folder_path"]
 
                     docs[i]["updated_at"] = datetime.now().isoformat()
                     updated = True
@@ -339,6 +344,163 @@ class DocumentService:
         except Exception as e:
             logger.error(f"Error deleting document: {e}")
             return False, {"error": f"Error deleting document: {str(e)}"}
+
+    def get_folders(self, project_id: str) -> tuple[bool, dict[str, Any]]:
+        """
+        Get all unique folder paths in a project's documents.
+
+        Returns:
+            Tuple of (success, result_dict with folders list)
+        """
+        try:
+            response = (
+                self.supabase_client.table("archon_projects")
+                .select("docs")
+                .eq("id", project_id)
+                .execute()
+            )
+
+            if not response.data:
+                return False, {"error": f"Project with ID {project_id} not found"}
+
+            docs = response.data[0].get("docs", [])
+
+            # Extract unique folder paths
+            folders = set()
+            for doc in docs:
+                folder_path = doc.get("folder_path", "/")
+                folders.add(folder_path)
+                # Also add parent folders
+                parts = folder_path.split("/")
+                for i in range(1, len(parts)):
+                    parent = "/".join(parts[:i])
+                    if parent:
+                        folders.add(parent)
+
+            # Always include root
+            folders.add("/")
+
+            return True, {
+                "project_id": project_id,
+                "folders": sorted(folders),
+                "total_count": len(folders),
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting folders: {e}")
+            return False, {"error": f"Error getting folders: {str(e)}"}
+
+    def rename_folder(
+        self, project_id: str, old_path: str, new_path: str
+    ) -> tuple[bool, dict[str, Any]]:
+        """
+        Rename a folder by updating folder_path for all documents in that folder.
+
+        Returns:
+            Tuple of (success, result_dict)
+        """
+        try:
+            # Get current project docs
+            project_response = (
+                self.supabase_client.table("archon_projects")
+                .select("docs")
+                .eq("id", project_id)
+                .execute()
+            )
+            if not project_response.data:
+                return False, {"error": f"Project with ID {project_id} not found"}
+
+            docs = project_response.data[0].get("docs", [])
+
+            # Update folder paths
+            updated_count = 0
+            for i, doc in enumerate(docs):
+                current_path = doc.get("folder_path", "/")
+                # Update if exact match or subfolder
+                if current_path == old_path or current_path.startswith(f"{old_path}/"):
+                    # Replace old path with new path
+                    docs[i]["folder_path"] = current_path.replace(old_path, new_path, 1)
+                    docs[i]["updated_at"] = datetime.now().isoformat()
+                    updated_count += 1
+
+            if updated_count == 0:
+                return False, {"error": f"No documents found in folder {old_path}"}
+
+            # Update the project
+            response = (
+                self.supabase_client.table("archon_projects")
+                .update({"docs": docs, "updated_at": datetime.now().isoformat()})
+                .eq("id", project_id)
+                .execute()
+            )
+
+            if response.data:
+                return True, {
+                    "project_id": project_id,
+                    "old_path": old_path,
+                    "new_path": new_path,
+                    "updated_count": updated_count,
+                }
+            else:
+                return False, {"error": "Failed to rename folder"}
+
+        except Exception as e:
+            logger.error(f"Error renaming folder: {e}")
+            return False, {"error": f"Error renaming folder: {str(e)}"}
+
+    def move_documents_to_folder(
+        self, project_id: str, doc_ids: list[str], folder_path: str
+    ) -> tuple[bool, dict[str, Any]]:
+        """
+        Move multiple documents to a new folder.
+
+        Returns:
+            Tuple of (success, result_dict)
+        """
+        try:
+            # Get current project docs
+            project_response = (
+                self.supabase_client.table("archon_projects")
+                .select("docs")
+                .eq("id", project_id)
+                .execute()
+            )
+            if not project_response.data:
+                return False, {"error": f"Project with ID {project_id} not found"}
+
+            docs = project_response.data[0].get("docs", [])
+
+            # Update folder paths for specified documents
+            updated_count = 0
+            for i, doc in enumerate(docs):
+                if doc.get("id") in doc_ids:
+                    docs[i]["folder_path"] = folder_path
+                    docs[i]["updated_at"] = datetime.now().isoformat()
+                    updated_count += 1
+
+            if updated_count == 0:
+                return False, {"error": "No matching documents found"}
+
+            # Update the project
+            response = (
+                self.supabase_client.table("archon_projects")
+                .update({"docs": docs, "updated_at": datetime.now().isoformat()})
+                .eq("id", project_id)
+                .execute()
+            )
+
+            if response.data:
+                return True, {
+                    "project_id": project_id,
+                    "folder_path": folder_path,
+                    "updated_count": updated_count,
+                }
+            else:
+                return False, {"error": "Failed to move documents"}
+
+        except Exception as e:
+            logger.error(f"Error moving documents: {e}")
+            return False, {"error": f"Error moving documents: {str(e)}"}
 
     def _build_change_summary(self, doc_id: str, update_fields: dict[str, Any]) -> str:
         """Build a human-readable change summary"""
